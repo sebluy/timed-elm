@@ -69,7 +69,7 @@ update action model =
 
 view : Signal.Address Action -> Model -> Html
 view address model =
-  let activities = List.map (\activity -> div [] [ text activity ]) model.activities
+  let activities = List.map (\activity -> div [ divStyle ] [ text activity ]) model.activities
       message f value = Signal.message address (f value)
       createInput = input [ placeholder "Activity"
                           , value model.createInput
@@ -87,11 +87,11 @@ view address model =
                           , onInput (message UpdateDateInput) ]
                           []
       dateOutput = text (strDateStr model.dateInput)
-  in div [] ([ div [] [ createInput, create ]
-             , div [] [ deleteInput, delete ]
-             , div [] [ reset ] ]
+  in div [] ([ div [ divStyle ] [ createInput, create ]
+             , div [ divStyle ] [ deleteInput, delete ]
+             , div [ divStyle ] [ reset ] ]
              ++ activities
-             ++ [ div [] [ dateInput, dateOutput] ])
+             ++ [ div [ divStyle ] [ dateInput, dateOutput] ])
 
 
 onInput : (String -> Signal.Message) -> Attribute
@@ -106,3 +106,12 @@ strDateStr str =
       Date.Format.format "%Y %B %e" date
     Err error ->
       error
+
+
+divStyle : Attribute
+divStyle =
+  style
+    [ ("border", "3px solid")
+    , ("margin", "30px auto 30px auto")
+    , ("padding", "20px")
+    , ("width", "50%") ]
