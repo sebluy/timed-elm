@@ -1,5 +1,7 @@
 import StartApp.Simple
-import Date
+import Date exposing (Date)
+import Time exposing (Time)
+import Dict exposing (Dict)
 import Date.Format
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -17,81 +19,139 @@ main =
 -- MODEL
 
 type alias Model =
-  { activities: List String
+  { activities: Dict String Activity
   , createInput: String
-  , deleteInput: String
-  , dateInput: String
+  , page: Page
   }
 
 
+type Page = HomePage | ActivityPage String
+
+type alias Activity =
+  { name: String
+  , sessions: Dict Time Session
+  }
+
+type alias Session =
+  { start: Date
+  , finish: Date
+  }
+
 init : Model
-init = { activities = []
+init = { activities = Dict.empty
        , createInput = ""
-       , deleteInput = ""
-       , dateInput = ""
+       , page = HomePage
        }
 
+initActivity : String -> Activity
+initActivity name = { name = name
+                    , sessions = Dict.empty
+                    }
 
 -- UPDATE
 
 type Action = Create
-            | Delete
-            | Reset
+            | Delete String
             | UpdateCreateInput String
-            | UpdateDeleteInput String
-            | UpdateDateInput String
+            | SetPage Page
+            | Nop
 
 update : Action -> Model -> Model
 update action model =
   case action of
-    Reset ->
-      init
 
     Create ->
-      { model | activities = model.activities ++ [model.createInput]
-              , createInput = "" }
+      let name = model.createInput
+      in { model | activities = Dict.insert name (initActivity name) model.activities
+                 , createInput = "" }
 
-    Delete ->
-      { model | activities = List.filter ((/=) model.deleteInput) model.activities
-              , deleteInput = "" }
+    Delete activityName ->
+      { model | activities = Dict.remove activityName model.activities }
 
     UpdateCreateInput str ->
       { model | createInput = str }
 
-    UpdateDeleteInput str ->
-      { model | deleteInput = str }
+    SetPage page ->
+      { model | page = page }
 
-    UpdateDateInput str ->
-      { model | dateInput = str }
+    Nop ->
+      model
 
 
 -- VIEW
 
 view : Signal.Address Action -> Model -> Html
 view address model =
-  let activities = List.map (\activity -> div [ divStyle ] [ text activity ]) model.activities
-      message f value = Signal.message address (f value)
-      createInput = input [ placeholder "Activity"
+  case model.page of
+    HomePage ->
+      homePageView address model
+    ActivityPage activityName ->
+      let maybeActivity = (Dict.get activityName model.activities)
+      in
+        case maybeActivity of
+          Just activity ->
+            activityPageView address activity
+          Nothing ->
+            notFoundPageView address
+
+notFoundPageView : Signal.Address Action -> Html
+notFoundPageView address =
+  div [ style divStyle ] [ text "Page not found..." ]
+
+homePageView : Signal.Address Action -> Model -> Html
+homePageView address model =
+  let message f value = Signal.message address (f value)
+      createInput = input [ placeholder "Create activity..."
                           , value model.createInput
-                          , onInput (message UpdateCreateInput) ]
+                          , onInput (message UpdateCreateInput)
+                          , onEnter address Create Nop
+                          , style centeredInputStyle
+                          ]
                           []
-      create = button [ onClick address (Create) ] [ text "Submit" ]
-      deleteInput = input [ placeholder "Activity"
-                          , value model.deleteInput
-                          , onInput (message UpdateDeleteInput) ]
-                          []
-      delete = button [ onClick address (Delete) ] [ text "Delete" ]
-      reset = button [ onClick address Reset] [ text "Reset"]
-      dateInput = input [ placeholder "Date"
-                          , value model.dateInput
-                          , onInput (message UpdateDateInput) ]
-                          []
-      dateOutput = text (strDateStr model.dateInput)
-  in div [] ([ div [ divStyle ] [ createInput, create ]
-             , div [ divStyle ] [ deleteInput, delete ]
-             , div [ divStyle ] [ reset ] ]
-             ++ activities
-             ++ [ div [ divStyle ] [ dateInput, dateOutput] ])
+  in div [] ([ div
+                 [ style divStyle ]
+                 [ createInput ]
+             , div
+                 [ style divStyle ]
+                 [ (activityListView address model.activities) ]
+             ])
+
+
+activityPageView : Signal.Address Action -> Activity -> Html
+activityPageView address activity =
+  div [ style divStyle ]
+      [ text activity.name
+      , button [ onClick address (SetPage HomePage) ]
+               [ text "Go back" ]
+      ]
+
+
+activityListView : Signal.Address Action -> Dict String Activity -> Html
+activityListView address activities =
+  if Dict.isEmpty activities
+  then
+    p [ style centeredStyle ] [ text "No activities" ]
+  else
+    table [ style tableStyle ]
+          [ tbody []
+                  (List.map ((activityView address) << snd) (Dict.toList activities))
+          ]
+
+
+activityView : Signal.Address Action -> Activity -> Html
+activityView address activity =
+  tr [ style trStyle ]
+     [ td [ onClick address (SetPage (ActivityPage activity.name))
+          , style tdTextStyle
+          ]
+          [ text activity.name ]
+     , td [ style tdStyle ]
+          [ button [ onClick address (Delete activity.name)
+                   , style buttonStyle
+                   ]
+                   [ text "Delete" ]
+          ]
+     ]
 
 
 onInput : (String -> Signal.Message) -> Attribute
@@ -99,19 +159,102 @@ onInput f =
   on "input" targetValue f
 
 
-strDateStr : String -> String
+onEnter : Signal.Address a -> a -> a -> Attribute
+onEnter address good bad =
+  onKeyUp address (\key -> if (enterKey == key)
+                           then good
+                           else bad)
+
+enterKey = 13
+
+strDateStr : String -> Result String String
 strDateStr str =
   case Date.fromString str of
     Ok date ->
-      Date.Format.format "%Y %B %e" date
+      Ok (Date.Format.format "%Y %B %e %l:%M %p" date)
     Err error ->
-      error
+      Err "Bad Date"
 
 
-divStyle : Attribute
+-- STYLES
+
+
+dateFieldStyle : Result String String -> List (String, String)
+dateFieldStyle result =
+  let style = case result of
+                Ok _ ->
+                  goodDateStyle
+                Err _ ->
+                  badDateStyle
+  in style ++ inputStyleBorderless
+
+
+inputStyle =
+  [ ("border", "0px") ]
+  ++ inputStyleBorderless
+
+centeredInputStyle =
+  inputStyle ++ centeredStyle ++
+  [ ("width", "100%") ]
+
+
+inputStyleBorderless =
+    [ ("outline", "none")
+    , ("font-family", "Arial sans-serif")
+    , ("font-size", "16px")
+    ]
+
+
+green = "#00FF00"
+
+
+red = "#FF0000"
+
+
+bottomBorderStyle color =
+  [ ("border-bottom", "solid 3px " ++ color)
+  , ("border-top", "none")
+  , ("border-right", "none")
+  , ("border-left", "none")
+  ]
+
+
+goodDateStyle = bottomBorderStyle green
+badDateStyle = bottomBorderStyle red
+
+
+tableStyle =
+  [ ("width", "50%")
+  , ("margin", "auto")
+  ]
+
+tdTextStyle =
+  ("font-size", "30px") :: tdStyle
+
+tdStyle =
+  [ ("padding", "20px")
+  , ("width", "50%")
+  ] ++ centeredStyle
+
+trStyle =
+  [ ("padding", "20px") ]
+
+
+centeredStyle =
+  [ ("text-align", "center") ]
+
+
+buttonStyle =
+  [ ("height", "40px")
+  , ("border-radius", "5px")
+  , ("padding-right", "20px")
+  , ("padding-left", "20px")
+  ]
+
+
 divStyle =
-  style
-    [ ("border", "3px solid")
-    , ("margin", "30px auto 30px auto")
-    , ("padding", "20px")
-    , ("width", "50%") ]
+  [ ("border", "3px solid")
+  , ("margin", "30px auto 30px auto")
+  , ("padding", "20px")
+  , ("width", "50%")
+  ]
