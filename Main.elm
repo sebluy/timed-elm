@@ -1,7 +1,6 @@
 import StartApp.Simple
 import Date exposing (Date)
 import Time exposing (Time)
-import Dict exposing (Dict)
 import Date.Format
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -19,17 +18,28 @@ main =
 -- MODEL
 
 type alias Model =
-  { activities: Dict String Activity
+  { activities: List Activity
   , createInput: String
   , page: Page
   }
 
+type Page = HomePage |
+            ActivityPage ActivityPageData
 
-type Page = HomePage | ActivityPage String
+type alias ActivityPageData =
+  { activityName: String
+  , sessionForm: Maybe SessionForm
+  }
+
+
+type alias SessionForm =
+  { start: String
+  , finish: String
+  }
 
 type alias Activity =
   { name: String
-  , sessions: Dict Time Session
+  , sessions: List Session
   }
 
 type alias Session =
@@ -38,14 +48,20 @@ type alias Session =
   }
 
 init : Model
-init = { activities = Dict.empty
+init = { activities = [ initActivity "Init" ]
        , createInput = ""
        , page = HomePage
        }
 
+initActivityPage : String -> ActivityPageData
+initActivityPage name =
+  { activityName = name
+  , sessionForm = Nothing
+  }
+
 initActivity : String -> Activity
 initActivity name = { name = name
-                    , sessions = Dict.empty
+                    , sessions = []
                     }
 
 -- UPDATE
@@ -54,6 +70,10 @@ type Action = Create
             | Delete String
             | UpdateCreateInput String
             | SetPage Page
+            | OpenSessionForm
+            | UpdateSessionFormStartInput String
+            | UpdateSessionFormFinishInput String
+            | SubmitSessionForm
             | Nop
 
 update : Action -> Model -> Model
@@ -62,11 +82,19 @@ update action model =
 
     Create ->
       let name = model.createInput
-      in { model | activities = Dict.insert name (initActivity name) model.activities
-                 , createInput = "" }
+          maybeActivity = findActivity name model.activities
+      in { model | activities = case maybeActivity of
+                                  Just a -> model.activities
+                                  Nothing -> (initActivity name) :: model.activities
+                 , createInput = ""
+         }
 
     Delete activityName ->
-      { model | activities = Dict.remove activityName model.activities }
+      { model |
+        activities = model.activities
+                     |> List.filter (\activity -> activity.name /= activityName)
+      , page = HomePage
+      }
 
     UpdateCreateInput str ->
       { model | createInput = str }
@@ -74,23 +102,117 @@ update action model =
     SetPage page ->
       { model | page = page }
 
+    OpenSessionForm ->
+      case model.page of
+        ActivityPage pageData ->
+          { model | page = ActivityPage { pageData | sessionForm = Just { start = ""
+                                                                        , finish = ""
+                                                                        }
+                                        }
+          }
+        _ ->
+          model
+
+    UpdateSessionFormStartInput str ->
+      case model.page of
+        ActivityPage pageData ->
+          let
+            sessionForm = pageData.sessionForm
+          in
+            { model
+              | page = ActivityPage { pageData
+                                      | sessionForm = case sessionForm of
+                                                        Just form ->
+                                                          Just { form
+                                                                 | start = str
+                                                               }
+                                                        Nothing ->
+                                                          Nothing
+                                    }
+            }
+        _ ->
+          model
+
+    UpdateSessionFormFinishInput str ->
+      case model.page of
+        ActivityPage pageData ->
+          let
+            sessionForm = pageData.sessionForm
+          in
+            { model
+              | page = ActivityPage { pageData
+                                      | sessionForm = case sessionForm of
+                                                        Just form ->
+                                                          Just { form
+                                                                 | finish = str
+                                                               }
+                                                        Nothing ->
+                                                          Nothing
+                                    }
+            }
+        _ ->
+          model
+
+    SubmitSessionForm ->
+      case model.page of
+        ActivityPage pageData ->
+          case pageData.sessionForm of
+            Just form ->
+              case (Date.fromString form.start, Date.fromString form.finish) of
+                (Ok start, Ok finish) ->
+                  let
+                    session = { start = start, finish = finish }
+                  in
+                    { model
+                      | page = ActivityPage { pageData | sessionForm = Nothing }
+                      , activities = addSession session pageData.activityName model.activities
+                    }
+                _ -> model
+            _ -> model
+        _ -> model
+
     Nop ->
       model
 
+addSessionToActivity : Session -> Activity -> Activity
+addSessionToActivity session activity =
+  { activity
+    | sessions = session :: activity.sessions
+  }
+
+addSession : Session -> String -> List Activity -> List Activity
+addSession session name activities =
+  List.map (\activity -> if activity.name == name
+                         then
+                           addSessionToActivity session activity
+                         else
+                           activity)
+           activities
+
+
+findActivity : String -> List Activity -> Maybe Activity
+findActivity name activities =
+  activities
+    |> List.filter (\activity -> activity.name == name)
+    |> List.head
+
 
 -- VIEW
+
 
 view : Signal.Address Action -> Model -> Html
 view address model =
   case model.page of
     HomePage ->
       homePageView address model
-    ActivityPage activityName ->
-      let maybeActivity = (Dict.get activityName model.activities)
+    ActivityPage activityPage ->
+      let maybeActivity = model.activities
+                          |> List.filter (\activity -> activity.name == activityPage.activityName)
+                          |> List.head
       in
         case maybeActivity of
           Just activity ->
-            activityPageView address activity
+            activityPageView address activity activityPage
           Nothing ->
             notFoundPageView address
 
@@ -117,40 +239,106 @@ homePageView address model =
              ])
 
 
-activityPageView : Signal.Address Action -> Activity -> Html
-activityPageView address activity =
+activityPageView : Signal.Address Action -> Activity -> ActivityPageData -> Html
+activityPageView address activity activityPage =
   div [ style divStyle ]
-      [ text activity.name
-      , button [ onClick address (SetPage HomePage) ]
-               [ text "Go back" ]
-      ]
+     ([ h1 [ style h1Style ]
+           [ text activity.name
+           , button [ onClick address (SetPage HomePage)
+                    , style buttonStyle
+                    ]
+                    [ text "Go back" ]
+           , button [ onClick address OpenSessionForm
+                    , style buttonStyle
+                    ]
+                    [ text "New session" ]
+
+           , button [ onClick address (Delete activity.name)
+                    , style buttonStyle
+                    ]
+                    [ text "Delete" ]
+            ]
+       ] ++
+       (case activityPage.sessionForm of
+              Just sessionForm ->
+                [ sessionFormView address sessionForm ]
+              Nothing ->
+                [])
+       ++ [ sessionListView address activity.sessions ]
+      )
+
+sessionFormView : Signal.Address Action -> SessionForm -> Html
+sessionFormView address form =
+  let
+    message f val = Signal.message address (f val)
+  in
+    div [] [ input [ placeholder "Start..."
+                   , value form.start
+                   , onInput (message UpdateSessionFormStartInput)
+                   , onEnter address SubmitSessionForm Nop
+                   , style inputStyle
+                   ]
+                   []
+           , strDateView form.start
+           , input [ placeholder "Finish..."
+                   , value form.finish
+                   , onInput (message UpdateSessionFormFinishInput)
+                   , onEnter address SubmitSessionForm Nop
+                   , style inputStyle
+                   ]
+                   []
+           , strDateView form.finish
+         ]
 
 
-activityListView : Signal.Address Action -> Dict String Activity -> Html
+strDateView : String -> Html
+strDateView dateStr =
+  p [] [ text (case (strDateStr dateStr) of
+                 Ok str -> str
+                 Err str -> str)
+       ]
+
+sessionListView : Signal.Address Action -> List Session -> Html
+sessionListView address sessions =
+  if List.isEmpty sessions
+  then
+    p [ style centeredStyle ] [ text "No sessions" ]
+  else
+    table [ style tableStyle ]
+          [ tbody []
+                  (List.map (sessionView address) sessions)
+          ]
+
+
+sessionView : Signal.Address Action -> Session -> Html
+sessionView address session =
+  tr [ style trStyle ]
+     [ td [ style tdTextStyle ]
+          [ text (formatDate session.start) ]
+     , td [ style tdTextStyle ]
+          [ text (formatDate session.finish) ]
+     ]
+
+
+activityListView : Signal.Address Action -> List Activity -> Html
 activityListView address activities =
-  if Dict.isEmpty activities
+  if List.isEmpty activities
   then
     p [ style centeredStyle ] [ text "No activities" ]
   else
     table [ style tableStyle ]
           [ tbody []
-                  (List.map ((activityView address) << snd) (Dict.toList activities))
+                  (List.map (activityView address) activities)
           ]
 
 
 activityView : Signal.Address Action -> Activity -> Html
 activityView address activity =
   tr [ style trStyle ]
-     [ td [ onClick address (SetPage (ActivityPage activity.name))
+     [ td [ onClick address (SetPage (ActivityPage (initActivityPage activity.name)))
           , style tdTextStyle
           ]
           [ text activity.name ]
-     , td [ style tdStyle ]
-          [ button [ onClick address (Delete activity.name)
-                   , style buttonStyle
-                   ]
-                   [ text "Delete" ]
-          ]
      ]
 
 
@@ -167,11 +355,15 @@ onEnter address good bad =
 
 enterKey = 13
 
+formatDate : Date -> String
+formatDate date =
+  Date.Format.format "%Y %B %e %l:%M %p" date
+
 strDateStr : String -> Result String String
 strDateStr str =
   case Date.fromString str of
     Ok date ->
-      Ok (Date.Format.format "%Y %B %e %l:%M %p" date)
+      Ok (formatDate date)
     Err error ->
       Err "Bad Date"
 
@@ -247,6 +439,8 @@ centeredStyle =
 buttonStyle =
   [ ("height", "40px")
   , ("border-radius", "5px")
+  , ("float", "right")
+  , ("margin-right", "20px")
   , ("padding-right", "20px")
   , ("padding-left", "20px")
   ]
@@ -258,3 +452,5 @@ divStyle =
   , ("padding", "20px")
   , ("width", "50%")
   ]
+
+h1Style = []
