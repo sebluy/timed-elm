@@ -1,4 +1,6 @@
 import StartApp.Simple
+import Session
+import SessionForm
 import Date exposing (Date)
 import Time exposing (Time)
 import Date.Format
@@ -28,23 +30,12 @@ type Page = HomePage |
 
 type alias ActivityPageData =
   { activityName: String
-  , sessionForm: Maybe SessionForm
-  }
-
-
-type alias SessionForm =
-  { start: String
-  , finish: String
+  , sessionForm: SessionForm.Model
   }
 
 type alias Activity =
   { name: String
-  , sessions: List Session
-  }
-
-type alias Session =
-  { start: Date
-  , finish: Date
+  , sessions: List Session.Model
   }
 
 init : Model
@@ -56,7 +47,7 @@ init = { activities = [ initActivity "Init" ]
 initActivityPage : String -> ActivityPageData
 initActivityPage name =
   { activityName = name
-  , sessionForm = Nothing
+  , sessionForm = SessionForm.init
   }
 
 initActivity : String -> Activity
@@ -70,10 +61,7 @@ type Action = Create
             | Delete String
             | UpdateCreateInput String
             | SetPage Page
-            | OpenSessionForm
-            | UpdateSessionFormStartInput String
-            | UpdateSessionFormFinishInput String
-            | SubmitSessionForm
+            | UpdateSessionForm SessionForm.Action
             | Nop
 
 update : Action -> Model -> Model
@@ -102,85 +90,45 @@ update action model =
     SetPage page ->
       { model | page = page }
 
-    OpenSessionForm ->
+    UpdateSessionForm subAction ->
       case model.page of
         ActivityPage pageData ->
-          { model | page = ActivityPage { pageData | sessionForm = Just { start = ""
-                                                                        , finish = ""
-                                                                        }
-                                        }
+          { model
+            | page = ActivityPage { pageData
+                                    | sessionForm = SessionForm.update subAction pageData.sessionForm
+                                  }
+            , activities = case subAction of
+                             SessionForm.Submit ->
+                               let
+                                 maybeSession = SessionForm.parseSession pageData.sessionForm
+                               in
+                                 maybeAddSession maybeSession pageData.activityName model.activities
+                             _ ->
+                               model.activities
+
           }
         _ ->
           model
 
-    UpdateSessionFormStartInput str ->
-      case model.page of
-        ActivityPage pageData ->
-          let
-            sessionForm = pageData.sessionForm
-          in
-            { model
-              | page = ActivityPage { pageData
-                                      | sessionForm = case sessionForm of
-                                                        Just form ->
-                                                          Just { form
-                                                                 | start = str
-                                                               }
-                                                        Nothing ->
-                                                          Nothing
-                                    }
-            }
-        _ ->
-          model
-
-    UpdateSessionFormFinishInput str ->
-      case model.page of
-        ActivityPage pageData ->
-          let
-            sessionForm = pageData.sessionForm
-          in
-            { model
-              | page = ActivityPage { pageData
-                                      | sessionForm = case sessionForm of
-                                                        Just form ->
-                                                          Just { form
-                                                                 | finish = str
-                                                               }
-                                                        Nothing ->
-                                                          Nothing
-                                    }
-            }
-        _ ->
-          model
-
-    SubmitSessionForm ->
-      case model.page of
-        ActivityPage pageData ->
-          case pageData.sessionForm of
-            Just form ->
-              case (Date.fromString form.start, Date.fromString form.finish) of
-                (Ok start, Ok finish) ->
-                  let
-                    session = { start = start, finish = finish }
-                  in
-                    { model
-                      | page = ActivityPage { pageData | sessionForm = Nothing }
-                      , activities = addSession session pageData.activityName model.activities
-                    }
-                _ -> model
-            _ -> model
-        _ -> model
-
     Nop ->
       model
 
-addSessionToActivity : Session -> Activity -> Activity
+
+addSessionToActivity : Session.Model -> Activity -> Activity
 addSessionToActivity session activity =
   { activity
     | sessions = session :: activity.sessions
   }
 
-addSession : Session -> String -> List Activity -> List Activity
+maybeAddSession : Maybe Session.Model -> String -> List Activity -> List Activity
+maybeAddSession maybeSession name activities =
+  case maybeSession of
+    Just session ->
+      addSession session name activities
+    Nothing ->
+      activities
+
+addSession : Session.Model -> String -> List Activity -> List Activity
 addSession session name activities =
   List.map (\activity -> if activity.name == name
                          then
@@ -248,7 +196,7 @@ activityPageView address activity activityPage =
                     , style buttonStyle
                     ]
                     [ text "Go back" ]
-           , button [ onClick address OpenSessionForm
+           , button [ onClick address (UpdateSessionForm SessionForm.Open)
                     , style buttonStyle
                     ]
                     [ text "New session" ]
@@ -258,38 +206,10 @@ activityPageView address activity activityPage =
                     ]
                     [ text "Delete" ]
             ]
-       ] ++
-       (case activityPage.sessionForm of
-              Just sessionForm ->
-                [ sessionFormView address sessionForm ]
-              Nothing ->
-                [])
+       ]
+       ++ [ SessionForm.view (Signal.forwardTo address UpdateSessionForm) activityPage.sessionForm ]
        ++ [ sessionListView address activity.sessions ]
       )
-
-sessionFormView : Signal.Address Action -> SessionForm -> Html
-sessionFormView address form =
-  let
-    message f val = Signal.message address (f val)
-  in
-    div [] [ input [ placeholder "Start..."
-                   , value form.start
-                   , onInput (message UpdateSessionFormStartInput)
-                   , onEnter address SubmitSessionForm Nop
-                   , style inputStyle
-                   ]
-                   []
-           , strDateView form.start
-           , input [ placeholder "Finish..."
-                   , value form.finish
-                   , onInput (message UpdateSessionFormFinishInput)
-                   , onEnter address SubmitSessionForm Nop
-                   , style inputStyle
-                   ]
-                   []
-           , strDateView form.finish
-         ]
-
 
 strDateView : String -> Html
 strDateView dateStr =
@@ -298,7 +218,7 @@ strDateView dateStr =
                  Err str -> str)
        ]
 
-sessionListView : Signal.Address Action -> List Session -> Html
+sessionListView : Signal.Address Action -> List Session.Model -> Html
 sessionListView address sessions =
   if List.isEmpty sessions
   then
@@ -310,7 +230,7 @@ sessionListView address sessions =
           ]
 
 
-sessionView : Signal.Address Action -> Session -> Html
+sessionView : Signal.Address Action -> Session.Model -> Html
 sessionView address session =
   tr [ style trStyle ]
      [ td [ style tdTextStyle ]
@@ -357,7 +277,7 @@ enterKey = 13
 
 formatDate : Date -> String
 formatDate date =
-  Date.Format.format "%Y %B %e %l:%M %p" date
+  Date.Format.format "%B %e, %Y %l:%M %p" date
 
 strDateStr : String -> Result String String
 strDateStr str =
