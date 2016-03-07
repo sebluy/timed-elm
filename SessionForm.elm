@@ -2,6 +2,7 @@ module SessionForm where
 
 import Session
 import Styles
+import Homeless exposing (..)
 import Date exposing (Date)
 import Time exposing (Time)
 import Date.Format
@@ -109,28 +110,3 @@ strDateView dateStr =
                  Ok str -> str
                  Err str -> str)
        ]
-
-onInput : (String -> Signal.Message) -> Attribute
-onInput f =
-  on "input" targetValue f
-
-
-onEnter : Signal.Address a -> a -> a -> Attribute
-onEnter address good bad =
-  onKeyUp address (\key -> if (enterKey == key)
-                           then good
-                           else bad)
-
-enterKey = 13
-
-formatDate : Date -> String
-formatDate date =
-  Date.Format.format "%B %e, %Y %l:%M %p" date
-
-strDateStr : String -> Result String String
-strDateStr str =
-  case Date.fromString str of
-    Ok date ->
-      Ok (formatDate date)
-    Err error ->
-      Err "Bad Date"

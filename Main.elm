@@ -2,9 +2,7 @@ import StartApp.Simple
 import Session
 import SessionForm
 import Styles
-import Date exposing (Date)
-import Time exposing (Time)
-import Date.Format
+import Homeless exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -211,13 +209,6 @@ activityPageView address activity activityPage =
        ++ [ sessionListView address activity.sessions ]
       )
 
-strDateView : String -> Html
-strDateView dateStr =
-  p [] [ text (case (strDateStr dateStr) of
-                 Ok str -> str
-                 Err str -> str)
-       ]
-
 sessionListView : Signal.Address Action -> List Session.Model -> Html
 sessionListView address sessions =
   if List.isEmpty sessions
@@ -260,29 +251,3 @@ activityView address activity =
           ]
           [ text activity.name ]
      ]
-
-
-onInput : (String -> Signal.Message) -> Attribute
-onInput f =
-  on "input" targetValue f
-
-
-onEnter : Signal.Address a -> a -> a -> Attribute
-onEnter address good bad =
-  onKeyUp address (\key -> if (enterKey == key)
-                           then good
-                           else bad)
-
-enterKey = 13
-
-formatDate : Date -> String
-formatDate date =
-  Date.Format.format "%B %e, %Y %l:%M %p" date
-
-strDateStr : String -> Result String String
-strDateStr str =
-  case Date.fromString str of
-    Ok date ->
-      Ok (formatDate date)
-    Err error ->
-      Err "Bad Date"
