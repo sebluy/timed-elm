@@ -1,6 +1,7 @@
 module SessionForm where
 
 import Session
+import Styles
 import Date exposing (Date)
 import Time exposing (Time)
 import Date.Format
@@ -85,7 +86,7 @@ view address model =
                        , value form.start
                        , onInput (message (\str -> (UpdateStartInput str)))
                        , onEnter address Submit Nop
-                       , style inputStyle
+                       , style Styles.input
                        ]
                        []
                , strDateView form.start
@@ -93,7 +94,7 @@ view address model =
                        , value form.finish
                        , onInput (message (\str -> (UpdateFinishInput str)))
                        , onEnter address Submit Nop
-                       , style inputStyle
+                       , style Styles.input
                        ]
                        []
                , strDateView form.finish
@@ -133,90 +134,3 @@ strDateStr str =
       Ok (formatDate date)
     Err error ->
       Err "Bad Date"
-
-
--- STYLES
-
-dateFieldStyle : Result String String -> List (String, String)
-dateFieldStyle result =
-  let style = case result of
-                Ok _ ->
-                  goodDateStyle
-                Err _ ->
-                  badDateStyle
-  in style ++ inputStyleBorderless
-
-
-inputStyle =
-  [ ("border", "0px") ]
-  ++ inputStyleBorderless
-
-centeredInputStyle =
-  inputStyle ++ centeredStyle ++
-  [ ("width", "100%") ]
-
-
-inputStyleBorderless =
-    [ ("outline", "none")
-    , ("font-family", "Arial sans-serif")
-    , ("font-size", "16px")
-    ]
-
-
-green = "#00FF00"
-
-
-red = "#FF0000"
-
-
-bottomBorderStyle color =
-  [ ("border-bottom", "solid 3px " ++ color)
-  , ("border-top", "none")
-  , ("border-right", "none")
-  , ("border-left", "none")
-  ]
-
-
-goodDateStyle = bottomBorderStyle green
-badDateStyle = bottomBorderStyle red
-
-
-tableStyle =
-  [ ("width", "50%")
-  , ("margin", "auto")
-  ]
-
-tdTextStyle =
-  ("font-size", "30px") :: tdStyle
-
-tdStyle =
-  [ ("padding", "20px")
-  , ("width", "50%")
-  ] ++ centeredStyle
-
-trStyle =
-  [ ("padding", "20px") ]
-
-
-centeredStyle =
-  [ ("text-align", "center") ]
-
-
-buttonStyle =
-  [ ("height", "40px")
-  , ("border-radius", "5px")
-  , ("float", "right")
-  , ("margin-right", "20px")
-  , ("padding-right", "20px")
-  , ("padding-left", "20px")
-  ]
-
-
-divStyle =
-  [ ("border", "3px solid")
-  , ("margin", "30px auto 30px auto")
-  , ("padding", "20px")
-  , ("width", "50%")
-  ]
-
-h1Style = []

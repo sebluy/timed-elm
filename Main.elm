@@ -1,13 +1,13 @@
 import StartApp.Simple
 import Session
 import SessionForm
+import Styles
 import Date exposing (Date)
 import Time exposing (Time)
 import Date.Format
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-
 
 main =
   StartApp.Simple.start
@@ -166,7 +166,7 @@ view address model =
 
 notFoundPageView : Signal.Address Action -> Html
 notFoundPageView address =
-  div [ style divStyle ] [ text "Page not found..." ]
+  div [ style Styles.div ] [ text "Page not found..." ]
 
 homePageView : Signal.Address Action -> Model -> Html
 homePageView address model =
@@ -175,34 +175,34 @@ homePageView address model =
                           , value model.createInput
                           , onInput (message UpdateCreateInput)
                           , onEnter address Create Nop
-                          , style centeredInputStyle
+                          , style Styles.centeredInput
                           ]
                           []
   in div [] ([ div
-                 [ style divStyle ]
+                 [ style Styles.div ]
                  [ createInput ]
              , div
-                 [ style divStyle ]
+                 [ style Styles.div ]
                  [ (activityListView address model.activities) ]
              ])
 
 
 activityPageView : Signal.Address Action -> Activity -> ActivityPageData -> Html
 activityPageView address activity activityPage =
-  div [ style divStyle ]
-     ([ h1 [ style h1Style ]
+  div [ style Styles.div ]
+     ([ h1 [ style Styles.h1 ]
            [ text activity.name
            , button [ onClick address (SetPage HomePage)
-                    , style buttonStyle
+                    , style Styles.button
                     ]
                     [ text "Go back" ]
            , button [ onClick address (UpdateSessionForm SessionForm.Open)
-                    , style buttonStyle
+                    , style Styles.button
                     ]
                     [ text "New session" ]
 
            , button [ onClick address (Delete activity.name)
-                    , style buttonStyle
+                    , style Styles.button
                     ]
                     [ text "Delete" ]
             ]
@@ -222,9 +222,9 @@ sessionListView : Signal.Address Action -> List Session.Model -> Html
 sessionListView address sessions =
   if List.isEmpty sessions
   then
-    p [ style centeredStyle ] [ text "No sessions" ]
+    p [ style Styles.centered ] [ text "No sessions" ]
   else
-    table [ style tableStyle ]
+    table [ style Styles.table ]
           [ tbody []
                   (List.map (sessionView address) sessions)
           ]
@@ -232,10 +232,10 @@ sessionListView address sessions =
 
 sessionView : Signal.Address Action -> Session.Model -> Html
 sessionView address session =
-  tr [ style trStyle ]
-     [ td [ style tdTextStyle ]
+  tr [ style Styles.tr ]
+     [ td [ style Styles.tdText ]
           [ text (formatDate session.start) ]
-     , td [ style tdTextStyle ]
+     , td [ style Styles.tdText ]
           [ text (formatDate session.finish) ]
      ]
 
@@ -244,9 +244,9 @@ activityListView : Signal.Address Action -> List Activity -> Html
 activityListView address activities =
   if List.isEmpty activities
   then
-    p [ style centeredStyle ] [ text "No activities" ]
+    p [ style Styles.centered ] [ text "No activities" ]
   else
-    table [ style tableStyle ]
+    table [ style Styles.table ]
           [ tbody []
                   (List.map (activityView address) activities)
           ]
@@ -254,9 +254,9 @@ activityListView address activities =
 
 activityView : Signal.Address Action -> Activity -> Html
 activityView address activity =
-  tr [ style trStyle ]
+  tr [ style Styles.tr ]
      [ td [ onClick address (SetPage (ActivityPage (initActivityPage activity.name)))
-          , style tdTextStyle
+          , style Styles.tdText
           ]
           [ text activity.name ]
      ]
@@ -286,91 +286,3 @@ strDateStr str =
       Ok (formatDate date)
     Err error ->
       Err "Bad Date"
-
-
--- STYLES
-
-
-dateFieldStyle : Result String String -> List (String, String)
-dateFieldStyle result =
-  let style = case result of
-                Ok _ ->
-                  goodDateStyle
-                Err _ ->
-                  badDateStyle
-  in style ++ inputStyleBorderless
-
-
-inputStyle =
-  [ ("border", "0px") ]
-  ++ inputStyleBorderless
-
-centeredInputStyle =
-  inputStyle ++ centeredStyle ++
-  [ ("width", "100%") ]
-
-
-inputStyleBorderless =
-    [ ("outline", "none")
-    , ("font-family", "Arial sans-serif")
-    , ("font-size", "16px")
-    ]
-
-
-green = "#00FF00"
-
-
-red = "#FF0000"
-
-
-bottomBorderStyle color =
-  [ ("border-bottom", "solid 3px " ++ color)
-  , ("border-top", "none")
-  , ("border-right", "none")
-  , ("border-left", "none")
-  ]
-
-
-goodDateStyle = bottomBorderStyle green
-badDateStyle = bottomBorderStyle red
-
-
-tableStyle =
-  [ ("width", "50%")
-  , ("margin", "auto")
-  ]
-
-tdTextStyle =
-  ("font-size", "30px") :: tdStyle
-
-tdStyle =
-  [ ("padding", "20px")
-  , ("width", "50%")
-  ] ++ centeredStyle
-
-trStyle =
-  [ ("padding", "20px") ]
-
-
-centeredStyle =
-  [ ("text-align", "center") ]
-
-
-buttonStyle =
-  [ ("height", "40px")
-  , ("border-radius", "5px")
-  , ("float", "right")
-  , ("margin-right", "20px")
-  , ("padding-right", "20px")
-  , ("padding-left", "20px")
-  ]
-
-
-divStyle =
-  [ ("border", "3px solid")
-  , ("margin", "30px auto 30px auto")
-  , ("padding", "20px")
-  , ("width", "50%")
-  ]
-
-h1Style = []
