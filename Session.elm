@@ -1,15 +1,19 @@
 module Session where
 
 import Date exposing (Date)
-import Time
+import Time exposing (Time)
 
 -- MODEL
 
 type alias Model =
   { start: Date
-  , finish: Date
+  , finish: Maybe Date
   }
 
-duration : Model -> Time.Time
+duration : Model -> Maybe Time
 duration session =
-  (Date.toTime session.finish) - (Date.toTime session.start)
+  case session.finish of
+    Just finish ->
+      Just (Date.toTime finish - Date.toTime session.start)
+    Nothing ->
+      Nothing

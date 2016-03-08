@@ -78,14 +78,21 @@ sessionListView context activity =
                   (List.map (sessionView context activity) activity.sessions)
           ]
 
+finishTimeString : Maybe Date -> String
+finishTimeString finish =
+  case finish of
+    Just finish ->
+      formatDate finish
+    Nothing ->
+      "Unfinished"
 
 sessionView : Context -> Activity.Model -> Session.Model -> Html
 sessionView context activity session =
   tr [ style Styles.tr ]
      [ td [ style Styles.tdText ]
-          [ text (formatDate session.start) ]
+          [ text <| formatDate <| session.start ]
      , td [ style Styles.tdText ]
-          [ text (formatDate session.finish) ]
+          [ text <| finishTimeString session.finish ]
      , td [ style Styles.td ]
           [ button [ style Styles.button
                    , onClick context.deleteSession (activity.name, session.start)

@@ -1,8 +1,8 @@
 module Activity where
 
 import Session
-import Time
 import Date exposing (Date)
+import Time exposing (Time)
 
 type alias Model =
   { name: String
@@ -24,10 +24,18 @@ deleteSession startDate activity =
   { activity
     | sessions =
         List.filter
-          (\session -> (Date.toTime session.start) /= (Date.toTime startDate))
+          (\session -> Date.toTime session.start /= Date.toTime startDate)
           activity.sessions
   }
 
-duration: Model -> Time.Time
+effectiveDuration: Maybe Time -> Time
+effectiveDuration duration =
+  case duration of
+    Just d ->
+      d
+    Nothing ->
+      0
+
+duration: Model -> Time
 duration activity =
-  List.foldl (+) 0 (List.map Session.duration activity.sessions)
+  List.foldl (+) 0 (List.map (effectiveDuration << Session.duration) activity.sessions)

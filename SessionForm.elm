@@ -66,9 +66,17 @@ parseSession : Model -> Maybe Session.Model
 parseSession model =
   case model of
     Just form ->
-      case (Date.fromString form.start, Date.fromString form.finish) of
-        (Ok startDate, Ok finishDate) ->
-          Just { start = startDate, finish = finishDate }
+      case Date.fromString form.start of
+        Ok startDate ->
+          if form.finish == ""
+          then
+            Just { start = startDate, finish = Nothing }
+          else
+            case Date.fromString form.finish of
+              Ok finishDate ->
+                Just { start = startDate, finish = Just finishDate }
+              _ ->
+                Nothing
         _ ->
           Nothing
     Nothing ->

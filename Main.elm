@@ -35,7 +35,7 @@ type Page = HomePage |
 init : Model
 init = { activities = [ { name = "Init"
                         , sessions = [ { start = Date.fromTime 1457401963788
-                                       , finish = Date.fromTime 1457402044358
+                                       , finish = Just (Date.fromTime 1457402044358)
                                        }
                                      ]
                         }
