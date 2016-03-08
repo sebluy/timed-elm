@@ -1,6 +1,8 @@
 import StartApp.Simple
 import Session
+import Activity
 import SessionForm
+import ActivityPage
 import Styles
 import Homeless exposing (..)
 import Html exposing (..)
@@ -14,52 +16,31 @@ main =
     , view = view
     }
 
-
 -- MODEL
 
 type alias Model =
-  { activities: List Activity
+  { activities: List Activity.Model
   , createInput: String
   , page: Page
   }
 
 type Page = HomePage |
-            ActivityPage ActivityPageData
-
-type alias ActivityPageData =
-  { activityName: String
-  , sessionForm: SessionForm.Model
-  }
-
-type alias Activity =
-  { name: String
-  , sessions: List Session.Model
-  }
+            ActivityPage ActivityPage.Model
 
 init : Model
-init = { activities = [ initActivity "Init" ]
+init = { activities = [ Activity.init "Init" ]
        , createInput = ""
        , page = HomePage
        }
-
-initActivityPage : String -> ActivityPageData
-initActivityPage name =
-  { activityName = name
-  , sessionForm = SessionForm.init
-  }
-
-initActivity : String -> Activity
-initActivity name = { name = name
-                    , sessions = []
-                    }
 
 -- UPDATE
 
 type Action = Create
             | Delete String
+            | AddSession Session.Model String
             | UpdateCreateInput String
             | SetPage Page
-            | UpdateSessionForm SessionForm.Action
+            | UpdateActivityPage ActivityPage.Action
             | Nop
 
 update : Action -> Model -> Model
@@ -71,16 +52,19 @@ update action model =
           maybeActivity = findActivity name model.activities
       in { model | activities = case maybeActivity of
                                   Just a -> model.activities
-                                  Nothing -> (initActivity name) :: model.activities
+                                  Nothing -> (Activity.init name) :: model.activities
                  , createInput = ""
          }
 
     Delete activityName ->
-      { model |
-        activities = model.activities
-                     |> List.filter (\activity -> activity.name /= activityName)
-      , page = HomePage
+      { model
+        | activities = model.activities
+                       |> List.filter (\activity -> activity.name /= activityName)
+        , page = HomePage
       }
+
+    AddSession session activityName ->
+      { model | activities = addSession session activityName model.activities }
 
     UpdateCreateInput str ->
       { model | createInput = str }
@@ -88,45 +72,41 @@ update action model =
     SetPage page ->
       { model | page = page }
 
-    UpdateSessionForm subAction ->
+    UpdateActivityPage pageAction ->
       case model.page of
-        ActivityPage pageData ->
-          { model
-            | page = ActivityPage { pageData
-                                    | sessionForm = SessionForm.update subAction pageData.sessionForm
-                                  }
-            , activities = case subAction of
-                             SessionForm.Submit ->
-                               let
-                                 maybeSession = SessionForm.parseSession pageData.sessionForm
-                               in
-                                 maybeAddSession maybeSession pageData.activityName model.activities
-                             _ ->
-                               model.activities
-
-          }
+        ActivityPage page ->
+          { model | page = ActivityPage (ActivityPage.update pageAction page) }
+          |> handleActivityPageAction pageAction page
         _ ->
           model
 
     Nop ->
       model
 
+handleActivityPageAction : ActivityPage.Action -> ActivityPage.Model -> Model -> Model
+handleActivityPageAction action page model =
+  case action of
+    ActivityPage.UpdateSessionForm formAction ->
+      case formAction of
+        SessionForm.Submit ->
+          let
+            maybeSession = SessionForm.parseSession page.sessionForm
+          in
+            case maybeSession of
+              Just session ->
+                update (AddSession session page.activityName) model
+              Nothing ->
+                model
+        _ ->
+          model
 
-addSessionToActivity : Session.Model -> Activity -> Activity
+addSessionToActivity : Session.Model -> Activity.Model -> Activity.Model
 addSessionToActivity session activity =
   { activity
     | sessions = session :: activity.sessions
   }
 
-maybeAddSession : Maybe Session.Model -> String -> List Activity -> List Activity
-maybeAddSession maybeSession name activities =
-  case maybeSession of
-    Just session ->
-      addSession session name activities
-    Nothing ->
-      activities
-
-addSession : Session.Model -> String -> List Activity -> List Activity
+addSession : Session.Model -> String -> List Activity.Model -> List Activity.Model
 addSession session name activities =
   List.map (\activity -> if activity.name == name
                          then
@@ -136,7 +116,7 @@ addSession session name activities =
            activities
 
 
-findActivity : String -> List Activity -> Maybe Activity
+findActivity : String -> List Activity.Model -> Maybe Activity.Model
 findActivity name activities =
   activities
     |> List.filter (\activity -> activity.name == name)
@@ -152,13 +132,20 @@ view address model =
     HomePage ->
       homePageView address model
     ActivityPage activityPage ->
-      let maybeActivity = model.activities
-                          |> List.filter (\activity -> activity.name == activityPage.activityName)
-                          |> List.head
+      let
+        maybeActivity = model.activities
+                      |> List.filter (\activity -> activity.name == activityPage.activityName)
+                      |> List.head
       in
         case maybeActivity of
           Just activity ->
-            activityPageView address activity activityPage
+            let
+              context = { actions = Signal.forwardTo address UpdateActivityPage
+                        , delete = Signal.forwardTo address Delete
+                        , goHome = Signal.forwardTo address (always (SetPage HomePage))
+                        }
+            in
+              ActivityPage.view context activity activityPage
           Nothing ->
             notFoundPageView address
 
@@ -184,54 +171,7 @@ homePageView address model =
                  [ (activityListView address model.activities) ]
              ])
 
-
-activityPageView : Signal.Address Action -> Activity -> ActivityPageData -> Html
-activityPageView address activity activityPage =
-  div [ style Styles.div ]
-     ([ h1 [ style Styles.h1 ]
-           [ text activity.name
-           , button [ onClick address (SetPage HomePage)
-                    , style Styles.button
-                    ]
-                    [ text "Go back" ]
-           , button [ onClick address (UpdateSessionForm SessionForm.Open)
-                    , style Styles.button
-                    ]
-                    [ text "New session" ]
-
-           , button [ onClick address (Delete activity.name)
-                    , style Styles.button
-                    ]
-                    [ text "Delete" ]
-            ]
-       ]
-       ++ [ SessionForm.view (Signal.forwardTo address UpdateSessionForm) activityPage.sessionForm ]
-       ++ [ sessionListView address activity.sessions ]
-      )
-
-sessionListView : Signal.Address Action -> List Session.Model -> Html
-sessionListView address sessions =
-  if List.isEmpty sessions
-  then
-    p [ style Styles.centered ] [ text "No sessions" ]
-  else
-    table [ style Styles.table ]
-          [ tbody []
-                  (List.map (sessionView address) sessions)
-          ]
-
-
-sessionView : Signal.Address Action -> Session.Model -> Html
-sessionView address session =
-  tr [ style Styles.tr ]
-     [ td [ style Styles.tdText ]
-          [ text (formatDate session.start) ]
-     , td [ style Styles.tdText ]
-          [ text (formatDate session.finish) ]
-     ]
-
-
-activityListView : Signal.Address Action -> List Activity -> Html
+activityListView : Signal.Address Action -> List Activity.Model -> Html
 activityListView address activities =
   if List.isEmpty activities
   then
@@ -243,10 +183,10 @@ activityListView address activities =
           ]
 
 
-activityView : Signal.Address Action -> Activity -> Html
+activityView : Signal.Address Action -> Activity.Model -> Html
 activityView address activity =
   tr [ style Styles.tr ]
-     [ td [ onClick address (SetPage (ActivityPage (initActivityPage activity.name)))
+     [ td [ onClick address (SetPage (ActivityPage (ActivityPage.init activity.name)))
           , style Styles.tdText
           ]
           [ text activity.name ]

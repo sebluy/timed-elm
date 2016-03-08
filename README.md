@@ -1,6 +1,6 @@
 Todo
 
-Move activity page to its own module (add maybe session form)
+Extract session/activity functions to their modules
 
 Show total time on front page
 
