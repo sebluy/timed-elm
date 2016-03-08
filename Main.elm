@@ -1,4 +1,4 @@
-import StartApp.Simple
+import StartApp
 
 import Session
 import Activity
@@ -13,13 +13,20 @@ import String
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import Effects
 
-main =
-  StartApp.Simple.start
-    { model = init
-    , update = update
+app =
+  StartApp.start
+    { init = init
+    , update = \action model -> (update action model, Effects.none)
     , view = view
+    , inputs = [ Signal.map
+                   (\time -> UpdateNow (Date.fromTime time))
+                   (Time.every Time.second)
+               ]
     }
+
+main = app.html
 
 -- MODEL
 
@@ -27,13 +34,14 @@ type alias Model =
   { activities: List Activity.Model
   , createInput: String
   , page: Page
+  , now: Date
   }
 
 type Page = HomePage |
             ActivityPage ActivityPage.Model
 
-init : Model
-init = { activities = [ { name = "Init"
+init : (Model, Effects.Effects Action)
+init = ({ activities = [ { name = "Init"
                         , sessions = [ { start = Date.fromTime 1457401963788
                                        , finish = Just (Date.fromTime 1457402044358)
                                        }
@@ -42,7 +50,8 @@ init = { activities = [ { name = "Init"
                       ]
        , createInput = ""
        , page = HomePage
-       }
+       , now = Date.fromTime 1457469219249
+       }, Effects.none)
 
 
 -- UPDATE
@@ -50,10 +59,12 @@ init = { activities = [ { name = "Init"
 type Action = CreateActivity
             | DeleteActivity String
             | DeleteSession String Date
+            | StartSession String
             | AddSession Session.Model String
             | UpdateCreateInput String
             | SetPage Page
             | UpdateActivityPage ActivityPage.Action
+            | UpdateNow Date
             | Nop
 
 update : Action -> Model -> Model
@@ -86,6 +97,16 @@ update action model =
                                                   activity)
       }
 
+    StartSession activityName ->
+      { model
+        | activities = model.activities
+                      |> List.map (\activity -> if activityName == activity.name
+                                                then
+                                                  Activity.startSession model.now activity
+                                                else
+                                                  activity)
+      }
+
     AddSession session activityName ->
       { model | activities = addSession session activityName model.activities }
 
@@ -102,6 +123,9 @@ update action model =
           |> handleActivityPageAction pageAction page
         _ ->
           model
+
+    UpdateNow now ->
+      { model | now = now }
 
     Nop ->
       model
@@ -141,14 +165,14 @@ findActivity name activities =
 
 -- VIEW
 
-activityPageContext : Signal.Address Action -> ActivityPage.Context
-activityPageContext address =
+activityPageContext : Signal.Address Action -> Activity.Model -> ActivityPage.Context
+activityPageContext address activity =
   { actions = Signal.forwardTo address UpdateActivityPage
   , deleteActivity = Signal.forwardTo address DeleteActivity
-  , deleteSession = Signal.forwardTo address (\(name, start) -> DeleteSession name start)
+  , deleteSession = Signal.forwardTo address (DeleteSession activity.name)
+  , startSession = Signal.forwardTo address (always (StartSession activity.name))
   , goHome = Signal.forwardTo address (always (SetPage HomePage))
   }
-
 
 view : Signal.Address Action -> Model -> Html
 view address model =
@@ -161,7 +185,7 @@ view address model =
       in
         case maybeActivity of
           Just activity ->
-            ActivityPage.view (activityPageContext address) activity activityPage
+            ActivityPage.view (activityPageContext address activity) activity activityPage
           Nothing ->
             notFoundPageView
 

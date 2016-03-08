@@ -38,7 +38,8 @@ update action model =
 
 type alias Context =
   { actions : Signal.Address Action
-  , deleteSession: Signal.Address (String, Date)
+  , startSession: Signal.Address ()
+  , deleteSession: Signal.Address Date
   , deleteActivity : Signal.Address String
   , goHome : Signal.Address ()
   }
@@ -52,6 +53,10 @@ view context activity activityPage =
                     , style Styles.button
                     ]
                     [ text "Go home" ]
+           , button [ onClick context.startSession ()
+                    , style Styles.button
+                    ]
+                    [ text "Start session" ]
            , button [ onClick context.actions (UpdateSessionForm SessionForm.Open)
                     , style Styles.button
                     ]
@@ -64,18 +69,18 @@ view context activity activityPage =
             ]
        ]
        ++ [ SessionForm.view (Signal.forwardTo context.actions UpdateSessionForm) activityPage.sessionForm ]
-       ++ [ sessionListView context activity ]
+       ++ [ sessionListView context activity.sessions ]
       )
 
-sessionListView : Context -> Activity.Model -> Html
-sessionListView context activity =
-  if List.isEmpty activity.sessions
+sessionListView : Context -> List Session.Model -> Html
+sessionListView context sessions =
+  if List.isEmpty sessions
   then
     p [ style Styles.centered ] [ text "No sessions" ]
   else
     table [ style Styles.table ]
           [ tbody []
-                  (List.map (sessionView context activity) activity.sessions)
+                  (List.map (sessionView context) sessions)
           ]
 
 finishTimeString : Maybe Date -> String
@@ -86,8 +91,8 @@ finishTimeString finish =
     Nothing ->
       "Unfinished"
 
-sessionView : Context -> Activity.Model -> Session.Model -> Html
-sessionView context activity session =
+sessionView : Context -> Session.Model -> Html
+sessionView context session =
   tr [ style Styles.tr ]
      [ td [ style Styles.tdText ]
           [ text <| formatDate <| session.start ]
@@ -95,7 +100,7 @@ sessionView context activity session =
           [ text <| finishTimeString session.finish ]
      , td [ style Styles.td ]
           [ button [ style Styles.button
-                   , onClick context.deleteSession (activity.name, session.start)
+                   , onClick context.deleteSession session.start
                    ]
                    [ text "Delete" ]
           ]

@@ -1,7 +1,7 @@
 Todo
 
-Change sessions to use times instead of dates?
-
 Add start/finish button
+
+Delegate activity updates
 
 Sync activities with local storage

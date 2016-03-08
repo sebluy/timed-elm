@@ -19,6 +19,10 @@ addSession: Session.Model -> Model -> Model
 addSession session activity =
   { activity | sessions = session :: activity.sessions }
 
+startSession: Date -> Model -> Model
+startSession startDate activity =
+  addSession { start = startDate, finish = Nothing } activity
+
 deleteSession: Date -> Model -> Model
 deleteSession startDate activity =
   { activity

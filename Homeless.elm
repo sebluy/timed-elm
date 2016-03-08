@@ -25,10 +25,10 @@ formatDate : Date -> String
 formatDate date =
   Date.Format.format "%B %e, %Y %l:%M %p" date
 
-strDateStr : String -> Result String String
+strDateStr : String -> String
 strDateStr str =
   case Date.fromString str of
     Ok date ->
-      Ok (formatDate date)
+      formatDate date
     Err error ->
-      Err "Bad Date"
+      error

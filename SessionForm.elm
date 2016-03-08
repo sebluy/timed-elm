@@ -3,9 +3,11 @@ module SessionForm where
 import Session
 import Styles
 import Homeless exposing (..)
+
 import Date exposing (Date)
 import Time exposing (Time)
 import Date.Format
+import String
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -106,15 +108,27 @@ view address model =
                        , style Styles.input
                        ]
                        []
-               , strDateView form.finish
+               , finishView form.finish
                ]
     Nothing ->
       div [] []
 
+isBlank : String -> Bool
+isBlank str =
+  String.all ((==) ' ') str
+
+sessionFieldView : String -> Html
+sessionFieldView str =
+  p [] [ text str ]
+
+finishView : String -> Html
+finishView dateStr =
+  sessionFieldView (if isBlank dateStr
+                    then
+                      "Unfinished"
+                    else
+                      strDateStr dateStr)
 
 strDateView : String -> Html
 strDateView dateStr =
-  p [] [ text (case (strDateStr dateStr) of
-                 Ok str -> str
-                 Err str -> str)
-       ]
+  sessionFieldView (strDateStr dateStr)
