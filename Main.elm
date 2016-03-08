@@ -1,10 +1,15 @@
 import StartApp.Simple
+
 import Session
 import Activity
 import SessionForm
 import ActivityPage
 import Styles
 import Homeless exposing (..)
+
+import Date
+import Time
+import String
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -28,10 +33,17 @@ type Page = HomePage |
             ActivityPage ActivityPage.Model
 
 init : Model
-init = { activities = [ Activity.init "Init" ]
+init = { activities = [ { name = "Init"
+                        , sessions = [ { start = Date.fromTime 1457401963788
+                                       , finish = Date.fromTime 1457402044358
+                                       }
+                                     ]
+                        }
+                      ]
        , createInput = ""
        , page = HomePage
        }
+
 
 -- UPDATE
 
@@ -100,17 +112,11 @@ handleActivityPageAction action page model =
         _ ->
           model
 
-addSessionToActivity : Session.Model -> Activity.Model -> Activity.Model
-addSessionToActivity session activity =
-  { activity
-    | sessions = session :: activity.sessions
-  }
-
 addSession : Session.Model -> String -> List Activity.Model -> List Activity.Model
 addSession session name activities =
   List.map (\activity -> if activity.name == name
                          then
-                           addSessionToActivity session activity
+                           Activity.addSession session activity
                          else
                            activity)
            activities
@@ -122,8 +128,14 @@ findActivity name activities =
     |> List.filter (\activity -> activity.name == name)
     |> List.head
 
-
 -- VIEW
+
+activityPageContext : Signal.Address Action -> ActivityPage.Context
+activityPageContext address =
+  { actions = Signal.forwardTo address UpdateActivityPage
+  , delete = Signal.forwardTo address Delete
+  , goHome = Signal.forwardTo address (always (SetPage HomePage))
+  }
 
 
 view : Signal.Address Action -> Model -> Html
@@ -133,24 +145,16 @@ view address model =
       homePageView address model
     ActivityPage activityPage ->
       let
-        maybeActivity = model.activities
-                      |> List.filter (\activity -> activity.name == activityPage.activityName)
-                      |> List.head
+        maybeActivity = findActivity activityPage.activityName model.activities
       in
         case maybeActivity of
           Just activity ->
-            let
-              context = { actions = Signal.forwardTo address UpdateActivityPage
-                        , delete = Signal.forwardTo address Delete
-                        , goHome = Signal.forwardTo address (always (SetPage HomePage))
-                        }
-            in
-              ActivityPage.view context activity activityPage
+            ActivityPage.view (activityPageContext address) activity activityPage
           Nothing ->
-            notFoundPageView address
+            notFoundPageView
 
-notFoundPageView : Signal.Address Action -> Html
-notFoundPageView address =
+notFoundPageView : Html
+notFoundPageView =
   div [ style Styles.div ] [ text "Page not found..." ]
 
 homePageView : Signal.Address Action -> Model -> Html
@@ -182,7 +186,6 @@ activityListView address activities =
                   (List.map (activityView address) activities)
           ]
 
-
 activityView : Signal.Address Action -> Activity.Model -> Html
 activityView address activity =
   tr [ style Styles.tr ]
@@ -190,4 +193,11 @@ activityView address activity =
           , style Styles.tdText
           ]
           [ text activity.name ]
+     , td [ style Styles.tdText ]
+          [ text (Activity.duration activity
+                  |> Time.inHours
+                  |> toString
+                  |> String.left 3
+                  |> (\duration -> duration ++ " hours"))
+          ]
      ]
