@@ -1,6 +1,6 @@
 Todo
 
-Extract session/activity functions to their modules
+Change sessions to use times instead of dates?
 
 Add start/finish button
 

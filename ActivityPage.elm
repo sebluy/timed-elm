@@ -5,6 +5,8 @@ import Activity
 import SessionForm
 import Styles
 import Homeless exposing (..)
+
+import Date exposing (Date)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -36,7 +38,8 @@ update action model =
 
 type alias Context =
   { actions : Signal.Address Action
-  , delete : Signal.Address String
+  , deleteSession: Signal.Address (String, Date)
+  , deleteActivity : Signal.Address String
   , goHome : Signal.Address ()
   }
 
@@ -54,33 +57,39 @@ view context activity activityPage =
                     ]
                     [ text "New session" ]
 
-           , button [ onClick context.delete activity.name
+           , button [ onClick context.deleteActivity activity.name
                     , style Styles.button
                     ]
                     [ text "Delete" ]
             ]
        ]
        ++ [ SessionForm.view (Signal.forwardTo context.actions UpdateSessionForm) activityPage.sessionForm ]
-       ++ [ sessionListView activity.sessions ]
+       ++ [ sessionListView context activity ]
       )
 
-sessionListView : List Session.Model -> Html
-sessionListView sessions =
-  if List.isEmpty sessions
+sessionListView : Context -> Activity.Model -> Html
+sessionListView context activity =
+  if List.isEmpty activity.sessions
   then
     p [ style Styles.centered ] [ text "No sessions" ]
   else
     table [ style Styles.table ]
           [ tbody []
-                  (List.map sessionView sessions)
+                  (List.map (sessionView context activity) activity.sessions)
           ]
 
 
-sessionView : Session.Model -> Html
-sessionView session =
+sessionView : Context -> Activity.Model -> Session.Model -> Html
+sessionView context activity session =
   tr [ style Styles.tr ]
      [ td [ style Styles.tdText ]
           [ text (formatDate session.start) ]
      , td [ style Styles.tdText ]
           [ text (formatDate session.finish) ]
+     , td [ style Styles.td ]
+          [ button [ style Styles.button
+                   , onClick context.deleteSession (activity.name, session.start)
+                   ]
+                   [ text "Delete" ]
+          ]
      ]

@@ -7,7 +7,7 @@ import ActivityPage
 import Styles
 import Homeless exposing (..)
 
-import Date
+import Date exposing (Date)
 import Time
 import String
 import Html exposing (..)
@@ -47,8 +47,9 @@ init = { activities = [ { name = "Init"
 
 -- UPDATE
 
-type Action = Create
-            | Delete String
+type Action = CreateActivity
+            | DeleteActivity String
+            | DeleteSession String Date
             | AddSession Session.Model String
             | UpdateCreateInput String
             | SetPage Page
@@ -59,7 +60,7 @@ update : Action -> Model -> Model
 update action model =
   case action of
 
-    Create ->
+    CreateActivity ->
       let name = model.createInput
           maybeActivity = findActivity name model.activities
       in { model | activities = case maybeActivity of
@@ -68,11 +69,21 @@ update action model =
                  , createInput = ""
          }
 
-    Delete activityName ->
+    DeleteActivity activityName ->
       { model
         | activities = model.activities
                        |> List.filter (\activity -> activity.name /= activityName)
         , page = HomePage
+      }
+
+    DeleteSession activityName startDate ->
+      { model
+        | activities = model.activities
+                      |> List.map (\activity -> if activityName == activity.name
+                                                then
+                                                  Activity.deleteSession startDate activity
+                                                else
+                                                  activity)
       }
 
     AddSession session activityName ->
@@ -133,7 +144,8 @@ findActivity name activities =
 activityPageContext : Signal.Address Action -> ActivityPage.Context
 activityPageContext address =
   { actions = Signal.forwardTo address UpdateActivityPage
-  , delete = Signal.forwardTo address Delete
+  , deleteActivity = Signal.forwardTo address DeleteActivity
+  , deleteSession = Signal.forwardTo address (\(name, start) -> DeleteSession name start)
   , goHome = Signal.forwardTo address (always (SetPage HomePage))
   }
 
@@ -163,7 +175,7 @@ homePageView address model =
       createInput = input [ placeholder "Create activity..."
                           , value model.createInput
                           , onInput (message UpdateCreateInput)
-                          , onEnter address Create Nop
+                          , onEnter address CreateActivity Nop
                           , style Styles.centeredInput
                           ]
                           []

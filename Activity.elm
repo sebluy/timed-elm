@@ -2,6 +2,7 @@ module Activity where
 
 import Session
 import Time
+import Date exposing (Date)
 
 type alias Model =
   { name: String
@@ -17,6 +18,15 @@ init name =
 addSession: Session.Model -> Model -> Model
 addSession session activity =
   { activity | sessions = session :: activity.sessions }
+
+deleteSession: Date -> Model -> Model
+deleteSession startDate activity =
+  { activity
+    | sessions =
+        List.filter
+          (\session -> (Date.toTime session.start) /= (Date.toTime startDate))
+          activity.sessions
+  }
 
 duration: Model -> Time.Time
 duration activity =
