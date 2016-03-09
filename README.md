@@ -1,5 +1,5 @@
 Todo
 
-Delegate activity updates
+Start using IDs
 
 Sync activities with local storage

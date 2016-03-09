@@ -14,10 +14,10 @@ equal : Model -> Model -> Bool
 equal s1 s2 =
   Date.toTime s1.start == Date.toTime s2.start
 
-duration : Model -> Maybe Time
-duration session =
+duration : Date -> Model -> Time
+duration now session =
   case session.finish of
     Just finish ->
-      Just (Date.toTime finish - Date.toTime session.start)
+      Date.toTime finish - Date.toTime session.start
     Nothing ->
-      Nothing
+      Date.toTime now - Date.toTime session.start

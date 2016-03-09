@@ -43,8 +43,8 @@ type alias Context =
   , goHome : Signal.Address ()
   }
 
-view : Context -> Activity.Model -> Model -> Html
-view context activity activityPage =
+view : Context -> Date -> Activity.Model -> Model -> Html
+view context now activity activityPage =
   div [ style Styles.div ]
      ([ h1 [ style Styles.h1 ]
            [ text activity.name
@@ -78,18 +78,18 @@ view context activity activityPage =
             ]
        ]
        ++ [ SessionForm.view (Signal.forwardTo context.actions UpdateSessionForm) activityPage.sessionForm ]
-       ++ [ sessionListView context activity.sessions ]
+       ++ [ sessionListView context now activity.sessions ]
       )
 
-sessionListView : Context -> List Session.Model -> Html
-sessionListView context sessions =
+sessionListView : Context -> Date -> List Session.Model -> Html
+sessionListView context now sessions =
   if List.isEmpty sessions
   then
     p [ style Styles.centered ] [ text "No sessions" ]
   else
     table [ style Styles.tableWide ]
           [ tbody []
-                  (List.map (sessionView context) sessions)
+                  (List.map (sessionView context now) sessions)
           ]
 
 finishTimeString : Maybe Date -> String
@@ -100,13 +100,15 @@ finishTimeString finish =
     Nothing ->
       "Unfinished"
 
-sessionView : Context -> Session.Model -> Html
-sessionView context session =
+sessionView : Context -> Date -> Session.Model -> Html
+sessionView context now session =
   tr [ style Styles.tr ]
      [ td [ style Styles.td ]
           [ text <| formatDate <| session.start ]
      , td [ style Styles.td ]
           [ text <| finishTimeString session.finish ]
+     , td [ style Styles.td ]
+          [ text <| durationString <| Session.duration now session ]
      , td [ style Styles.td ]
           [ button [ style Styles.button
                    , onClick context.updateActivity (Activity.DeleteSession session)

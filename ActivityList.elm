@@ -54,13 +54,13 @@ update action now activities =
 
 -- VIEW
 
-view : Signal.Address String -> Model -> Html
-view address activities =
+view : Signal.Address String -> Date -> Model -> Html
+view address now activities =
   if List.isEmpty activities
   then
     p [ style Styles.centered ] [ text "No activities" ]
   else
     table [ style Styles.tableNarrow ]
           [ tbody []
-                  (List.map (Activity.view address) activities)
+                  (List.map (Activity.view address now) activities)
           ]

@@ -2,6 +2,7 @@ module Activity where
 
 import Session
 import Styles
+import Homeless exposing (..)
 
 import Date exposing (Date)
 import Time exposing (Time)
@@ -22,6 +23,28 @@ init name =
   { name = name
   , sessions = []
   }
+
+unfinishedSessions: Model -> List Session.Model
+unfinishedSessions activity =
+  let
+    f = \session -> case session.finish of
+                      Just _ ->
+                        False
+                      Nothing ->
+                        True
+  in
+    List.filter f activity.sessions
+
+duration: Date -> Model -> Time
+duration now activity =
+  List.map (Session.duration now) activity.sessions
+    |> List.foldl (+) 0
+
+durationToday: Date -> Model -> Time
+durationToday now activity =
+  List.filter (isToday now << .start) activity.sessions
+    |> List.map (Session.duration now)
+    |> List.foldl (+) 0
 
 -- UPDATE
 
@@ -51,52 +74,19 @@ update action now activity =
                              then
                                { session | finish = Just now }
                              else
-                               session
+                               otherSession
       in
         { activity | sessions = List.map f activity.sessions }
 
-unfinishedSessions: Model -> List Session.Model
-unfinishedSessions activity =
-  let
-    f = \session -> case session.finish of
-                      Just _ ->
-                        False
-                      Nothing ->
-                        True
-  in
-    List.filter f activity.sessions
-
-effectiveDuration: Maybe Time -> Time
-effectiveDuration duration =
-  case duration of
-    Just d ->
-      d
-    Nothing ->
-      0
-
-duration: Model -> Time
-duration activity =
-  List.foldl (+) 0 (List.map (effectiveDuration << Session.duration) activity.sessions)
-
-durationString : Time -> String
-durationString duration =
-  let
-    hours = floor (Time.inHours duration) % 24
-    minutes = floor (Time.inMinutes duration) % 60
-    seconds = floor (Time.inSeconds duration) % 60
-  in
-    List.map (String.padLeft 2 '0' << toString) [hours, minutes, seconds]
-      |> String.join ":"
-
 -- VIEW
 
-view : Signal.Address String -> Model -> Html
-view address activity =
+view : Signal.Address String -> Date -> Model -> Html
+view address now activity =
   tr [ style Styles.tr ]
      [ td [ onClick address activity.name
           , style Styles.tdText
           ]
           [ text activity.name ]
      , td [ style Styles.tdText ]
-          [ text (durationString (duration activity)) ]
+          [ text (durationString (durationToday now activity)) ]
      ]

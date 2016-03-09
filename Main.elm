@@ -23,7 +23,7 @@ app =
     , view = view
     , inputs = [ Signal.map
                    (\time -> UpdateNow (Date.fromTime time))
-                   (Time.every Time.second)
+                   (Time.every (100 * Time.millisecond))
                ]
     }
 
@@ -42,16 +42,10 @@ type Page = HomePage |
             ActivityPage ActivityPage.Model
 
 init : Model
-init = { activities = [ { name = "Init"
-                        , sessions = [ { start = Date.fromTime 1457401963788
-                                       , finish = Just (Date.fromTime 1457402044358)
-                                       }
-                                     ]
-                        }
-                      ]
+init = { activities = []
        , createInput = ""
        , page = HomePage
-       , now = Date.fromTime 1457469219249
+       , now = Date.fromTime 0
        }
 
 
@@ -70,7 +64,7 @@ update action model =
   case action of
     UpdateActivities activitiesAction ->
       { model | activities = ActivityList.update activitiesAction model.now model.activities }
-        |> handleActivitiesAction activitiesAction
+        |> interceptActivitiesAction activitiesAction
 
     SubmitCreateInput ->
       update (UpdateActivities (ActivityList.Create (Activity.init model.createInput))) model
@@ -86,7 +80,7 @@ update action model =
       case model.page of
         ActivityPage page ->
           { model | page = ActivityPage (ActivityPage.update pageAction page) }
-            |> handleActivityPageAction pageAction page
+            |> interceptActivityPageAction pageAction page
         _ ->
           model
 
@@ -96,16 +90,16 @@ update action model =
     Nop ->
       model
 
-handleActivitiesAction : ActivityList.Action -> Model -> Model
-handleActivitiesAction action model =
+interceptActivitiesAction : ActivityList.Action -> Model -> Model
+interceptActivitiesAction action model =
   case action of
     ActivityList.Delete _ ->
       { model | page = HomePage }
     _ ->
       model
 
-handleActivityPageAction : ActivityPage.Action -> ActivityPage.Model -> Model -> Model
-handleActivityPageAction action page model =
+interceptActivityPageAction : ActivityPage.Action -> ActivityPage.Model -> Model -> Model
+interceptActivityPageAction action page model =
   case action of
     ActivityPage.UpdateSessionForm formAction ->
       case (formAction,
@@ -137,7 +131,7 @@ view address model =
     ActivityPage page ->
       case ActivityList.find page.activityName model.activities of
         Just activity ->
-          ActivityPage.view (activityPageContext address activity) activity page
+          ActivityPage.view (activityPageContext address activity) model.now activity page
         Nothing ->
           notFoundPageView
 
@@ -162,5 +156,5 @@ homePageView address model =
                [ createInput ]
            , div
                [ style Styles.div ]
-               [ ActivityList.view activitiesAddress model.activities ]
+               [ ActivityList.view activitiesAddress model.now model.activities ]
            ]
