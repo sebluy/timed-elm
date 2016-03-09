@@ -41,18 +41,19 @@ goodDate = bottomBorder green
 badDate = bottomBorder red
 
 
-table =
+tableNarrow =
   [ ("width", "50%")
   , ("margin", "auto")
   ]
+
+tableWide =
+  [ ("margin", "auto")]
 
 tdText =
   ("font-size", "30px") :: td
 
 td =
-  [ ("padding", "20px")
-  , ("width", "50%")
-  ] ++ centered
+  [ ("padding", "20px") ] ++ centered
 
 tr =
   [ ("padding", "20px") ]

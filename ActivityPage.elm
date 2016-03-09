@@ -39,6 +39,7 @@ update action model =
 type alias Context =
   { actions : Signal.Address Action
   , startSession: Signal.Address ()
+  , finishSession: Signal.Address Date
   , deleteSession: Signal.Address Date
   , deleteActivity : Signal.Address String
   , goHome : Signal.Address ()
@@ -49,14 +50,24 @@ view context activity activityPage =
   div [ style Styles.div ]
      ([ h1 [ style Styles.h1 ]
            [ text activity.name
+
            , button [ onClick context.goHome ()
                     , style Styles.button
                     ]
                     [ text "Go home" ]
-           , button [ onClick context.startSession ()
-                    , style Styles.button
-                    ]
-                    [ text "Start session" ]
+
+           , case List.head (Activity.unfinishedSessions activity) of
+               Nothing ->
+                 button [ onClick context.startSession ()
+                        , style Styles.button
+                        ]
+                        [ text "Start session" ]
+               Just session ->
+                 button [ style Styles.button
+                        , onClick context.finishSession session.start
+                        ]
+                        [ text "Finish session"]
+
            , button [ onClick context.actions (UpdateSessionForm SessionForm.Open)
                     , style Styles.button
                     ]
@@ -78,7 +89,7 @@ sessionListView context sessions =
   then
     p [ style Styles.centered ] [ text "No sessions" ]
   else
-    table [ style Styles.table ]
+    table [ style Styles.tableWide ]
           [ tbody []
                   (List.map (sessionView context) sessions)
           ]
@@ -94,9 +105,9 @@ finishTimeString finish =
 sessionView : Context -> Session.Model -> Html
 sessionView context session =
   tr [ style Styles.tr ]
-     [ td [ style Styles.tdText ]
+     [ td [ style Styles.td ]
           [ text <| formatDate <| session.start ]
-     , td [ style Styles.tdText ]
+     , td [ style Styles.td ]
           [ text <| finishTimeString session.finish ]
      , td [ style Styles.td ]
           [ button [ style Styles.button
