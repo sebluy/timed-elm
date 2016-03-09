@@ -19,8 +19,8 @@ type alias Model =
   }
 
 init : String -> Model
-init name =
-  { activityName = name
+init activityName =
+  { activityName = activityName
   , sessionForm = SessionForm.init
   }
 
@@ -38,10 +38,8 @@ update action model =
 
 type alias Context =
   { actions : Signal.Address Action
-  , startSession: Signal.Address ()
-  , finishSession: Signal.Address Date
-  , deleteSession: Signal.Address Date
-  , deleteActivity : Signal.Address String
+  , updateActivity: Signal.Address Activity.Action
+  , deleteActivity: Signal.Address ()
   , goHome : Signal.Address ()
   }
 
@@ -58,22 +56,22 @@ view context activity activityPage =
 
            , case List.head (Activity.unfinishedSessions activity) of
                Nothing ->
-                 button [ onClick context.startSession ()
+                 button [ onClick context.updateActivity (Activity.StartSession)
                         , style Styles.button
                         ]
                         [ text "Start session" ]
                Just session ->
                  button [ style Styles.button
-                        , onClick context.finishSession session.start
+                        , onClick context.updateActivity (Activity.FinishSession session)
                         ]
-                        [ text "Finish session"]
+                        [ text "Finish"]
 
            , button [ onClick context.actions (UpdateSessionForm SessionForm.Open)
                     , style Styles.button
                     ]
                     [ text "New session" ]
 
-           , button [ onClick context.deleteActivity activity.name
+           , button [ onClick context.deleteActivity ()
                     , style Styles.button
                     ]
                     [ text "Delete" ]
@@ -111,7 +109,7 @@ sessionView context session =
           [ text <| finishTimeString session.finish ]
      , td [ style Styles.td ]
           [ button [ style Styles.button
-                   , onClick context.deleteSession session.start
+                   , onClick context.updateActivity (Activity.DeleteSession session)
                    ]
                    [ text "Delete" ]
           ]
