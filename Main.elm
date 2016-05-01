@@ -11,23 +11,39 @@ import Homeless exposing (..)
 import Date exposing (Date)
 import Time exposing (Time)
 import String
+import Debug
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Effects
 
-app =
-  StartApp.start
-    { init = (init, Effects.none)
-    , update = \action model -> (update action model, Effects.none)
-    , view = view
-    , inputs = [ Signal.map
-                   (\time -> UpdateNow (Date.fromTime time))
-                   (Time.every (100 * Time.millisecond))
-               ]
-    }
+main : Signal Html
+main =
+  Signal.map (view actions.address) model
 
-main = app.html
+model : Signal Model
+model =
+  Signal.foldp update initialModel (Signal.merge actions.signal tick)
+
+initialModel : Model
+initialModel =
+  init (ActivityList.unstore (Maybe.withDefault [] getActivities))
+
+actions : Signal.Mailbox Action
+actions =
+  Signal.mailbox Nop
+
+tick : Signal Action
+tick =
+  Signal.map
+    (\time -> UpdateNow (Date.fromTime time))
+    (Time.every (100 * Time.millisecond))
+
+port setActivities : Signal ActivityList.Store
+port setActivities =
+  Signal.dropRepeats (Signal.map (ActivityList.store << .activities) model)
+
+port getActivities : Maybe ActivityList.Store
 
 -- MODEL
 
@@ -41,13 +57,13 @@ type alias Model =
 type Page = HomePage |
             ActivityPage ActivityPage.Model
 
-init : Model
-init = { activities = []
-       , createInput = ""
-       , page = HomePage
-       , now = Date.fromTime 0
-       }
-
+init : ActivityList.Model -> Model
+init activities =
+  { activities = activities
+  , createInput = ""
+  , page = HomePage
+  , now = Date.fromTime 0
+  }
 
 -- UPDATE
 

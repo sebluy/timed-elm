@@ -24,6 +24,23 @@ init name =
   , sessions = []
   }
 
+type alias Store =
+  { name: String
+  , sessions: List Session.Store
+  }
+
+store : Model -> Store
+store activity =
+  { name = activity.name
+  , sessions = List.map Session.store activity.sessions
+  }
+
+unstore : Store -> Model
+unstore store =
+  { name = store.name
+  , sessions = List.map Session.unstore store.sessions
+  }
+
 unfinishedSessions: Model -> List Session.Model
 unfinishedSessions activity =
   let

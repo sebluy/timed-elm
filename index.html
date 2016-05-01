@@ -1,0 +1,22 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>Elm Timed</title>
+  <script type="text/javascript" src="elm.js"></script>
+</head>
+
+<body>
+</body>
+
+<script type="text/javascript">
+  var state = localStorage.getItem('state');
+  var startingState = state ? JSON.parse(state) : null;
+  var main = Elm.fullscreen(Elm.Main, { getActivities: startingState });
+  main.ports.setActivities.subscribe(function(state) {
+    localStorage.setItem('state', JSON.stringify(state));
+  });
+</script>
+
+</html>

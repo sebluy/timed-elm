@@ -23,6 +23,16 @@ find name activities =
   List.filter ((==) name << .name) activities
     |> List.head
 
+type alias Store = List Activity.Store
+
+store : Model -> Store
+store activities =
+  List.map Activity.store activities
+
+unstore : Store -> Model
+unstore store =
+  List.map Activity.unstore store
+
 -- UPDATE
 
 type Action = Create Activity.Model
